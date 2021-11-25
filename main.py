@@ -16,24 +16,23 @@ st.set_page_config(page_title="Open Source - PmDARM", layout="wide")
 # Title on the Header of page
 st.title('Open Source Product Analysis Dashboard with Association Rule Mining - PmDARM')
 
-# Setting sections from streamlit API
+# Making containers
+sidebar = st.sidebar.container()
 header = st.container()
 metric_col = st.container()
 main_contents = st.container()
 a_priori = st.container()
-sidebar = st.sidebar.container()
-
 
 # Hot encode function for suitability of the dataframe
+
+
 def hot_encode(x):
     if(x <= 0):
         return 0
     if(x >= 1):
         return 1
 
-# MAKE AD-HOC FUNCTION TO REMOVE UNRELATED WORDS (UN-JARGONIZER)
-
-# Primary Unjargonizer - for FSets
+# # Primary Unjargonizer - for FSets - MAKE AD-HOC FUNCTION TO REMOVE UNRELATED WORDS (UN-JARGONIZER)
 
 
 def removeJargon(sentence):
@@ -44,9 +43,7 @@ def removeJargon(sentence):
     new_str = new_str.replace('frozenset', '')
     return new_str
 
-# MAKE AD-HOC FUNCTION TO CALL F-SET RELATED DATASET TO UN-JARGONIZE (UN-JARGONIZER BY DATASET AND COL-NAME)
-
-# FSets unjargonizer
+# FSets unjargonizer - MAKE AD-HOC FUNCTION TO CALL F-SET RELATED DATASET TO UN-JARGONIZE (UN-JARGONIZER BY DATASET AND COL-NAME)
 
 
 def fSets_remove(dataset, colName):
@@ -60,6 +57,27 @@ def fSets_remove(dataset, colName):
     dataset[colName] = dataset[colName].replace(
         dataset[colName].tolist(), gotStr)
     return dataset
+
+
+def error_default():
+    with st.expander("Oops... something went wrong."):
+        st.markdown('''
+            #### Looks like you've run into **one** *(or more)* possible error(s):
+            - Your dataset is not the correct extension format. It only accepts *".csv"* extension files.
+            
+            - Your dataset columns may not be correctly named. It should follow the strict-naming convention as *(but not in order)*:
+                - **[Order ID]**: This acts as the primary key for all purchases.
+                - **[Order Date]**: This would be the datetime object for the dataframe.
+                - **[State]**: This would be the participating states. It serves to refer from the indian geojson file.
+                - **[City]**: The participating city for the states. 
+                - **[Category]**: The category of items purchased.
+                - **[Sub-Category]**: The subset of items from 'Category'.
+
+            - Your dataset contains null values.
+
+            - Your dataset elements may not be correlated with the column names.            
+        ''')
+        st.empty()
 
 
 # SIDEBAR - TO INPUT RELEVANT DATASET
@@ -80,19 +98,43 @@ with sidebar:
                 return dataset
             dataset = load_csv()
 
+            # Break if there is any NA values - Check for NaN values in each column
+            for col in dataset.columns:
+                NA_checker = dataset[col].isnull().values.any()
+                if NA_checker == True:
+                    with header:
+                        st.caption("Error")
+                        st.warning("{} has some null values in columns.".format(
+                            data_file.name))
+                        st.error("Unable to continue. Stopping process.")
+                        error_default()
+                    st.stop()
+
+            # Dropping column name with streamlit's default indexer
             if dataset.columns[0] == "Unnamed: 0":
                 dataset.drop('Unnamed: 0', inplace=True, axis=1)
 
+            # Removing white trailing spaces from dataset according to remover_list
+            remover_list = ['Order ID', 'State',
+                            'City', 'Category', 'Sub-Category']
+            for cols in remover_list:
+                # st.text("Removing white space")
+                dataset[cols] = dataset[cols].str.strip()
+
             # set "Order Date" to datetime format in python
             dataset["Order Date"] = pd.to_datetime(dataset["Order Date"])
+
         else:
             with header:
                 st.caption("Error")
                 st.text('Please specify valid dataset(s) in the sidebar')
 
-    # File not found error
-    except FileNotFoundError:
-        st.error('File specification error')
+    # File error
+    except:
+        st.error('File readeing error.')
+        with header:
+            error_default()
+        st.stop()
 
 # SUCCESS DATASET RETRIEVAL - TOP HEADER
 with header:
