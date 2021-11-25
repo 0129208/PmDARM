@@ -1,3 +1,4 @@
+# MANDATORY DEPENDECIES
 import os
 import datetime
 import json
@@ -10,18 +11,16 @@ import plotly.express as px
 from mlxtend.frequent_patterns import apriori, association_rules
 
 # SET PAGE LAYOUT TO WIDE
-st.set_page_config(
-    page_title="Open Source - PmDARM", layout="wide")
-# , layout="wide"
-st.title('Open Source Product Monitoring Dashboard with Association Rule Mining - PmDARM')
-checker = False
+st.set_page_config(page_title="Open Source - PmDARM", layout="wide")
 
+# Title on the Header of page
+st.title('Open Source Product Analysis Dashboard with Association Rule Mining - PmDARM')
+
+# Setting sections from streamlit API
 header = st.container()
-metrics_1, metrics_2 = st.columns(2)
+metric_col = st.container()
 main_contents = st.container()
 a_priori = st.container()
-tester = st.container()
-QvM1, QvM2 = st.columns(2)
 sidebar = st.sidebar.container()
 
 
@@ -34,7 +33,7 @@ def hot_encode(x):
 
 # MAKE AD-HOC FUNCTION TO REMOVE UNRELATED WORDS (UN-JARGONIZER)
 
-
+# Primary Unjargonizer - for FSets
 def removeJargon(sentence):
     new_str = ''
     for char in sentence:
@@ -45,7 +44,7 @@ def removeJargon(sentence):
 
 # MAKE AD-HOC FUNCTION TO CALL F-SET RELATED DATASET TO UN-JARGONIZE (UN-JARGONIZER BY DATASET AND COL-NAME)
 
-
+# FSets unjargonizer
 def fSets_remove(dataset, colName):
     # MAKE NEW LIST TO STORE ALL P-W-B COLUMN FOR REPLACE LATER
     gotStr = []
@@ -59,16 +58,14 @@ def fSets_remove(dataset, colName):
     return dataset
 
 
-# SIDEBAR
-# TO INPUT RELEVANT DATASET
+# SIDEBAR - TO INPUT RELEVANT DATASET
 with sidebar:
     try:
         # Upload a file to the csv uploader
         data_file = st.file_uploader("Upload CSV", type=["csv"])
         if data_file is not None:
 
-            # when no entry is inserted
-            checker = True
+            # Uploaded file details            
             file_details = {"filename": data_file.name,
                             "filetype": data_file.type, "filesize": data_file.size}
 
@@ -87,20 +84,14 @@ with sidebar:
         else:
             st.empty()
 
+    # File not found error
     except FileNotFoundError:
         # st.error('File specification error')
         with header:
             st.caption("Error")
             st.text('Please specify valid dataset(s) in the sidebar')
 
-if checker == False:
-    with header:
-        st.caption("Error")
-        st.text('No dataset specified.')
-        st.text('Please specify valid dataset(s) in the sidebar.')
-
-# SUCCESS DATASET RETRIEVAL
-# TOP HEADER
+# SUCCESS DATASET RETRIEVAL - TOP HEADER
 with header:
     try:
         # Preparing plots for DATE vs Quantity (bar and line)
@@ -136,12 +127,18 @@ with header:
             st.markdown(''' 
                 > #### State Purchase Ranking             
                 > Over here, we can see transactions of participating states over the fiscal year.''')
+
+            # Making 2 columns
             choice_col, show_table_col = st.columns([1, 3])
+
+            # Choice column
             with choice_col:
                 time_choice = dataset["Order Date"].dt.strftime(
                     "%Y-%m").unique().tolist()
                 selected_datetime = st.selectbox(
                     "Choose date (YYYY-mm):", options=time_choice, index=0)
+
+            # Show selected choice column
             with show_table_col:
                 rank_state = dataset.groupby([dataset["Order Date"].dt.strftime(
                     "%Y-%m"), "State"])["Order ID"].count().to_frame().reset_index()
@@ -156,151 +153,159 @@ with header:
         # do nothing
         st.text("")
 
-# METRIC DATA 1
-with metrics_1:
+# Donut chart 
+with metric_col:
+    metrics_1, metrics_2 = st.columns(2)
+    # METRIC DATA 1
+    with metrics_1:
+
+        try:
+            # Making new dataframe to store category sales by quantity
+            catXquantity = dataset.groupby(dataset["Category"]).Quantity.sum(
+            ).sort_values(ascending=False).to_frame().reset_index()
+
+            # Preparing chart
+            pieChart1 = px.pie(
+                data_frame=catXquantity,
+                values=catXquantity["Quantity"],
+                names=catXquantity["Category"],
+                color=catXquantity["Category"],
+                title="Top Sales (Category)",
+                template="presentation",
+                hole=0.5
+            )
+
+            # Show chart
+            st.plotly_chart(pieChart1, use_container_width=True)
+        except:
+            st.empty()
+
+    # METRIC DATA 2
+    with metrics_2:
+
+        try:
+            # Making new dataframe to store sub-category sales by quantity
+            subCatXQuantity = dataset.groupby(["Sub-Category", "Category"]).Quantity.sum(
+            ).sort_values(ascending=False).to_frame().reset_index()
+            subCatXQuantity_forShow = subCatXQuantity.head(5)
+
+            # Preparing chart
+            pieChart2 = px.pie(
+                data_frame=subCatXQuantity_forShow,
+                values='Quantity',
+                names='Sub-Category',
+                color='Sub-Category',
+                title="Top 5 Sales (Items)",
+                template="presentation",
+                labels={'Sub-Category': 'Item'},
+                hole=0.5,
+                hover_name='Category'
+            )
+
+            # Showing chart
+            st.plotly_chart(pieChart2, use_container_width=True)
+        except:
+            st.empty()
 
     try:
-        labels = dataset.Category.unique()
-        perc_val = dataset.groupby(
-            dataset["Category"]).Quantity.sum() / dataset.Quantity.sum()
+        if dataset is not None:
+            with st.expander("More details about Category and Sub-Category"):
+                try:
+                    catCol, itemCol = st.columns(2)
+                    subCol1, subCol2, subCol3 = st.columns(3)
+                    category = sorted(dataset["Category"].unique().tolist())
+                    items = sorted(dataset["Sub-Category"].unique().tolist())
+                    clothing = sorted(dataset.loc[dataset["Category"]
+                                                  == "Clothing"]["Sub-Category"].unique().tolist())
+                    electronics = sorted(
+                        dataset.loc[dataset["Category"] == "Electronics"]["Sub-Category"].unique().tolist())
+                    furniture = sorted(
+                        dataset.loc[dataset["Category"] == "Furniture"]["Sub-Category"].unique().tolist())
+                    with catCol:
+                        st.markdown(' #### List of Categories.')
+                        st.table(category)
 
-        fig = go.Figure(
-            data=[go.Pie(labels=labels, values=perc_val, hole=.65)])
-        fig.update_layout(
-            title="Top Sales (Category)",
-            # width=500, height=500,
-            # margin=dict(l=5, r=5, t=5, b=5),
-            template="presentation")
-        st.plotly_chart(fig, use_container_width=True)
+                        with subCol1:
+                            st.markdown(' **Clothing** ')
+                            st.table(clothing)
+                        with subCol2:
+                            st.markdown(' **Electronics** ')
+                            st.table(electronics)
+                        with subCol3:
+                            st.markdown(' **Furniture** ')
+                            st.table(furniture)
+
+                    with itemCol:
+                        st.markdown(' #### List of Sub-Categories.')
+                        st.table(items)
+                except:
+                    st.empty()
     except:
         st.empty()
 
-
-# METRIC DATA 2
-with metrics_2:
-
-    try:
-        sc_quant_table = pd.DataFrame()
-        sc_quant_table["Sub-Category"] = sorted(
-            dataset["Sub-Category"].unique())
-        sc_quant_table["Quantity"] = dataset.groupby(
-            dataset["Sub-Category"]).Quantity.sum().tolist()
-        sc_quant_table = sc_quant_table.sort_values(
-            by="Quantity", ascending=False)
-
-        # labels for Sub-Category
-        sc_labels = sc_quant_table["Sub-Category"].head(5)
-        sc_perc_val = sc_quant_table["Quantity"].head(
-            5)/sc_quant_table["Quantity"].head(5).sum()
-
-        # Use `hole` to create a donut-like pie chart
-        fig = go.Figure(
-            data=[go.Pie(labels=sc_labels, values=sc_perc_val, hole=.65)])
-        fig.update_layout(
-            title="Top 5 Sales (Items)",
-            # width=500, height=500,
-            # margin=dict(l=5, r=5, t=5, b=5),
-            template="presentation"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    except:
-        st.empty()
-
-
-with st.expander("More details about Category and Sub-Category"):
-    try:
-        catCol, itemCol = st.columns(2)
-        subCol1, subCol2, subCol3 = st.columns(3)
-        category = sorted(dataset["Category"].unique().tolist())
-        items = sorted(dataset["Sub-Category"].unique().tolist())
-        clothing = sorted(dataset.loc[dataset["Category"]
-                                      == "Clothing"]["Sub-Category"].unique().tolist())
-        electronics = sorted(
-            dataset.loc[dataset["Category"] == "Electronics"]["Sub-Category"].unique().tolist())
-        furniture = sorted(
-            dataset.loc[dataset["Category"] == "Furniture"]["Sub-Category"].unique().tolist())
-        with catCol:
-            st.markdown(' #### List of Categories.')
-            st.table(category)
-
-            with subCol1:
-                st.markdown(' **Clothing** ')
-                st.table(clothing)
-            with subCol2:
-                st.markdown(' **Electronics** ')
-                st.table(electronics)
-            with subCol3:
-                st.markdown(' **Furniture** ')
-                st.table(furniture)
-
-        with itemCol:
-            st.markdown(' #### List of Sub-Categories.')
-            st.table(items)
-    except:
-        st.empty()
-
+# Thematic/Choropleth Map
 with st.spinner('Coloring map... wait for it...'):
+    with main_contents:
+        try:
+            # GETTING JSON FILE AND LOAD INTO "indian_states"
+            indian_states = json.load(open('states_india.geojson'))
+
+            # MAKING NEW FEATURE IN JSON AS ID FROM STATE CODE FOR DATASET LATER
+            state_id_map = {}
+            for feature in indian_states['features']:
+                feature['id'] = feature['properties']['state_code']
+                state_id_map[feature['properties']['st_nm']] = feature['id']
+
+            # MAP ID WITH STATE (DATASET) FROM THE JSON FILE
+            dataset['id'] = dataset['State'].apply(lambda x: state_id_map[x])
+
+            # MAKING NEW DF FOR PURPOSE OF CHORO-MAP
+            for_map = pd.DataFrame()
+            for_map["State"] = sorted(dataset["State"].unique())
+            for_map["Quantity"] = dataset.groupby(
+                dataset["State"]).Quantity.sum().tolist()
+            for_map['id'] = for_map['State'].apply(lambda x: state_id_map[x])
+
+            # MAKING CHOROPLETH MAP
+            fig = px.choropleth(for_map, locations='id',
+                                geojson=indian_states,
+                                color='Quantity',
+                                hover_name='State',
+                                scope='asia',
+                                height=750)
+            fig.update_geos(fitbounds="locations", visible=True)
+            st.header("Quantity of Sales by State")
+            st.markdown('''
+            Over here you have the **states** depicted in chorepleth/thematic map based on the **quantity of sales**.
+            ''')
+            st.plotly_chart(fig, use_container_width=True)
+        except:
+            st.empty()
+
+
+# Market Basket Recommendation Function
+with a_priori:
     try:
-        # GETTING JSON FILE AND LOAD INTO "indian_states"
-        indian_states = json.load(open('states_india.geojson'))
-
-        # MAKING NEW FEATURE IN JSON AS ID FROM STATE CODE FOR DATASET LATER
-        state_id_map = {}
-        for feature in indian_states['features']:
-            feature['id'] = feature['properties']['state_code']
-            state_id_map[feature['properties']['st_nm']] = feature['id']
-
-        # MAP ID WITH STATE (DATASET) FROM THE JSON FILE
-        dataset['id'] = dataset['State'].apply(lambda x: state_id_map[x])
-
-        # MAKING NEW DF FOR PURPOSE OF CHORO-MAP
-        for_map = pd.DataFrame()
-        for_map["State"] = sorted(dataset["State"].unique())
-        for_map["Quantity"] = dataset.groupby(
-            dataset["State"]).Quantity.sum().tolist()
-        for_map['id'] = for_map['State'].apply(lambda x: state_id_map[x])
-
-        # MAKING CHOROPLETH MAP
-        fig = px.choropleth(for_map, locations='id',
-                            geojson=indian_states,
-                            color='Quantity',
-                            hover_name='State',
-                            scope='asia',
-                            height=750)
-        fig.update_geos(fitbounds="locations", visible=True)
-        st.header("Quantity of Sales by State")
-        st.markdown('''
-        Over here you have the **states** depicted in chorepleth/thematic map based on the **quantity of sales**.
-        ''')
-        st.plotly_chart(fig, use_container_width=True)
-    except:
-        st.empty()
-
-
-with st.spinner('Baking rules...'):
-
-    try:
+        # Setting making a list of default states
+        defaultState = dataset['State'].unique()        
         st.header("Market Basket Recommendation List")
         st.markdown('''
             Over here are the recommendation lists of item(s) from the selected **city** of the **state**.
         ''')
-
+        
         # Make 2 columns
         customization_col, show_col = st.columns([1, 3])
-        defaultState = dataset['State'].unique()
-        # defaultCity = dataset['State'==defaultState].City.unique()
 
+        # First col
         with customization_col:
-            count = 1
-
             # choose State
             stateName = st.selectbox(
                 "Choose State:", options=sorted(defaultState), index=0)
-
             # Choose City Box
             chosen_cityName = st.selectbox(
                 "Choose City:", options=dataset[dataset["State"] == stateName].City.unique().tolist(), index=0)
 
+        # Second col
         with show_col:
 
             # Setting metrics for ARM (with defaultilizer)
@@ -309,6 +314,7 @@ with st.spinner('Baking rules...'):
             set_metric = ""
             set_min_threshold = 0
 
+            # Deafult values setter - better safe than sorry 
             try:
                 if set_cityName == "":
                     set_cityName = dataset["State"].City.unique().tolist()[
@@ -361,6 +367,7 @@ with st.spinner('Baking rules...'):
             report_df = report_df.style.hide_index()
             st.write(report_df)
 
+        # Show more details about the ARM report (Market Basket Recommendation)
         with st.expander("More details"):
 
             # math columns - mCol
@@ -390,9 +397,14 @@ with st.spinner('Baking rules...'):
                     > As stated in the Market Recommendation List, it's the value of cross-selling opportunity!
                 ''')
 
+            # Get raw rules from rules_basket dataframe
             report = rules_basket
+
+            # Calling AD-HOC Unjargonizer
             fSets_remove(report, "antecedents")
             fSets_remove(report, "consequents")
+
+            # Dropping irrelevants
             report.drop('leverage', inplace=True, axis=1)
             report.drop('conviction', inplace=True, axis=1)
             st.write(report)
