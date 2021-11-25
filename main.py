@@ -274,8 +274,8 @@ with st.spinner('Coloring map... wait for it...'):
                                 geojson=indian_states,
                                 color='Quantity',
                                 hover_name='State',
-                                scope='asia',
-                                height=750)
+                                scope='asia'
+                                )
             fig.update_geos(fitbounds="locations", visible=True)
             st.header("Quantity of Sales by State")
             st.markdown('''
