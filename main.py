@@ -34,6 +34,8 @@ def hot_encode(x):
 # MAKE AD-HOC FUNCTION TO REMOVE UNRELATED WORDS (UN-JARGONIZER)
 
 # Primary Unjargonizer - for FSets
+
+
 def removeJargon(sentence):
     new_str = ''
     for char in sentence:
@@ -45,6 +47,8 @@ def removeJargon(sentence):
 # MAKE AD-HOC FUNCTION TO CALL F-SET RELATED DATASET TO UN-JARGONIZE (UN-JARGONIZER BY DATASET AND COL-NAME)
 
 # FSets unjargonizer
+
+
 def fSets_remove(dataset, colName):
     # MAKE NEW LIST TO STORE ALL P-W-B COLUMN FOR REPLACE LATER
     gotStr = []
@@ -65,7 +69,7 @@ with sidebar:
         data_file = st.file_uploader("Upload CSV", type=["csv"])
         if data_file is not None:
 
-            # Uploaded file details            
+            # Uploaded file details
             file_details = {"filename": data_file.name,
                             "filetype": data_file.type, "filesize": data_file.size}
 
@@ -82,14 +86,13 @@ with sidebar:
             # set "Order Date" to datetime format in python
             dataset["Order Date"] = pd.to_datetime(dataset["Order Date"])
         else:
-            st.empty()
+            with header:
+                st.caption("Error")
+                st.text('Please specify valid dataset(s) in the sidebar')
 
     # File not found error
     except FileNotFoundError:
-        # st.error('File specification error')
-        with header:
-            st.caption("Error")
-            st.text('Please specify valid dataset(s) in the sidebar')
+        st.error('File specification error')
 
 # SUCCESS DATASET RETRIEVAL - TOP HEADER
 with header:
@@ -153,7 +156,7 @@ with header:
         # do nothing
         st.text("")
 
-# Donut chart 
+# Donut chart
 with metric_col:
     metrics_1, metrics_2 = st.columns(2)
     # METRIC DATA 1
@@ -287,12 +290,12 @@ with st.spinner('Coloring map... wait for it...'):
 with a_priori:
     try:
         # Setting making a list of default states
-        defaultState = dataset['State'].unique()        
+        defaultState = dataset['State'].unique()
         st.header("Market Basket Recommendation List")
         st.markdown('''
             Over here are the recommendation lists of item(s) from the selected **city** of the **state**.
         ''')
-        
+
         # Make 2 columns
         customization_col, show_col = st.columns([1, 3])
 
@@ -314,7 +317,7 @@ with a_priori:
             set_metric = ""
             set_min_threshold = 0
 
-            # Deafult values setter - better safe than sorry 
+            # Deafult values setter - better safe than sorry
             try:
                 if set_cityName == "":
                     set_cityName = dataset["State"].City.unique().tolist()[
