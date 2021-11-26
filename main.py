@@ -131,7 +131,7 @@ with sidebar:
 
     # File error
     except:
-        st.error('File readeing error.')
+        st.error('File reading error.')
         with header:
             error_default()
         st.stop()
